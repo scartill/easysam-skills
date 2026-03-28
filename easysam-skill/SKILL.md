@@ -14,6 +14,7 @@ This skill helps you build and deploy serverless applications using the EasySAM 
 2. Organize your project into modules (e.g., `orders/`, `users/`).
 3. Create a `common/` directory in each module for shared logic.
 4. Ensure the root `resources.yaml` imports your modules.
+5. Clean up any boilerplate example files or placeholders before production.
 
 ### 2. Adding a Resource
 1. Identify the target module and its `easysam.yaml`.

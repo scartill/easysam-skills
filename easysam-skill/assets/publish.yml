@@ -1,0 +1,33 @@
+name: Deploy EasySAM Application
+
+on:
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Setup Python
+        run: uv python install
+      - name: Install dependencies
+        run: uv sync
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Validate Schema
+        run: uv run easysam --environment dev inspect schema .
+      - name: Run Tests
+        run: uv run pytest
+      - name: Generate and Deploy
+        run: |
+          uv run easysam --environment dev generate .
+          uv run easysam --environment dev deploy .

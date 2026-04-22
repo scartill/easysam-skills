@@ -1,15 +1,21 @@
 # EasySAM Resource Patterns
 
+These patterns should be placed within an `easysam.yaml` file in a specific module (e.g., `backend/database/easysam.yaml` or `backend/function/myfunc/easysam.yaml`).
+
 ## Lambda + DynamoDB (with IAM)
+*File: backend/function/myfunc/easysam.yaml*
 ```yaml
-functions:
-  my-function:
-    uri: backend/handler.py
+lambda:
+  name: my-function
+  resources:
     tables:
       - !Ref MyTable
-    envvars:
-      TABLE_NAME: !Ref MyTable
+  envvars:
+    TABLE_NAME: !Ref MyTable
+```
 
+*File: backend/database/easysam.yaml*
+```yaml
 tables:
   MyTable:
     attributes:
@@ -18,22 +24,22 @@ tables:
 ```
 
 ## SQS-Triggered Lambda
+*File: backend/function/worker/easysam.yaml*
 ```yaml
 queues:
   task-queue:
 
-functions:
-  worker:
-    uri: backend/worker.py
-    polls:
-      - name: !Ref task-queue
-        batchsize: 10
+lambda:
+  name: worker
+  polls:
+    - name: !Ref task-queue
+      batchsize: 10
 ```
 
 ## Scheduled Cleanup
+*File: backend/function/cleanup/easysam.yaml*
 ```yaml
-functions:
-  cleanup:
-    uri: backend/cleanup.py
-    schedule: "rate(1 day)"
+lambda:
+  name: cleanup
+  schedule: "rate(1 day)"
 ```

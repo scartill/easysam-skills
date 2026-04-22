@@ -7,20 +7,42 @@ description: Build and deploy serverless applications using EasySAM. Use when th
 
 This skill helps you build and deploy serverless applications using the EasySAM YAML-to-SAM generator.
 
+## Standard Project Hierarchy
+
+EasySAM encourages a modular "Module Pattern" for organizing AWS resources. The baseline hierarchy follows this structure:
+
+```text
+my-project/
+├── resources.yaml            # Global settings (prefix, tags) and module imports
+├── backend/                  # Main module (imported by resources.yaml)
+│   ├── database/             # Data resources (DynamoDB, RDS)
+│   │   └── easysam.yaml
+│   └── function/             # Compute resources (Lambdas)
+│       └── my-function/
+│           ├── easysam.yaml  # Local resource definition
+│           └── index.py      # Lambda handler code
+├── common/                   # Shared logic (referenced by multiple modules)
+│   └── utils.py
+├── thirdparty/               # External dependencies
+│   └── requirements.txt
+└── tests/                    # Project-level tests (pytest)
+    └── test_myapp.py
+```
+
 ## Core Workflows
 
 ### 1. Scaffolding a Project
 1. Run `uv run easysam init`.
-2. Organize your project into modules (e.g., `orders/`, `users/`).
-3. Create a `common/` directory in each module for shared logic.
-4. Ensure the root `resources.yaml` imports your modules.
-5. Clean up any boilerplate example files or placeholders before production.
+2. Organize resources by type under `backend/` or by feature (e.g., `orders/`, `users/`).
+3. Place shared helper functions in a root `common/` directory.
+4. Ensure the root `resources.yaml` imports your top-level modules (e.g., `import: [backend]`).
+5. Keep Lambda handler logic minimal; delegate complexity to `common/`.
 
 ### 2. Adding a Resource
-1. Identify the target module and its `easysam.yaml`.
-2. Add the resource definition (e.g., `tables`, `functions`).
+1. Identify the target module (e.g., `backend/database/` or `backend/function/myfunc/`).
+2. Add the resource definition to the local `easysam.yaml`.
 3. Run schema validation: `uv run easysam --environment dev inspect schema .`.
-4. Create handler code in `backend/`.
+4. Create handler code (if needed) in the same directory as the local `easysam.yaml`.
 5. Add a unit test in `tests/`.
 
 ### 3. Deployment

@@ -77,7 +77,7 @@ Include recipes for common resource configurations.
 ```yaml
 functions:
   my-function:
-    uri: backend/handler.py
+    uri: backend/index.py
     tables:
       - !Ref MyTable
     envvars:

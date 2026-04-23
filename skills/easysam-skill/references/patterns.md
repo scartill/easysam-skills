@@ -9,18 +9,20 @@ lambda:
   name: my-function
   resources:
     tables:
-      - !Ref MyTable
-  envvars:
-    TABLE_NAME: !Ref MyTable
+      - MyTable      # Correct: use bare name
+    envvars:
+      TABLE_NAME: MyTable
+      API_KEY: "{{resolve:ssm:/myapp/api-key}}" # Correct: resolve syntax
 ```
 
-*File: backend/database/easysam.yaml*
+## HTTP-Facing Lambda
+*File: backend/function/api/easysam.yaml*
 ```yaml
-tables:
-  MyTable:
-    attributes:
-      - name: id
-        hash: true
+lambda:
+  name: api-handler
+  integration:       # Correct: use integration, not api
+    path: /api/v1    # Correct: unique path prefix
+    open: true
 ```
 
 ## SQS-Triggered Lambda
@@ -32,14 +34,23 @@ queues:
 lambda:
   name: worker
   polls:
-    - name: !Ref task-queue
+    - name: task-queue # Correct: use bare name
       batchsize: 10
 ```
 
-## Scheduled Cleanup
-*File: backend/function/cleanup/easysam.yaml*
+## S3 Bucket (Public Shortcut)
+*File: backend/storage/easysam.yaml*
+```yaml
+buckets:
+  assets:
+    public: true     # Correct: shortcut for public CORS
+```
+
+## Scheduled Lambda (Poller)
+*File: backend/function/poller/easysam.yaml*
 ```yaml
 lambda:
-  name: cleanup
-  schedule: "rate(1 day)"
+  name: poller
+  schedule: "rate(5 minutes)"
+  # NOTE: Poller has no integration: block
 ```

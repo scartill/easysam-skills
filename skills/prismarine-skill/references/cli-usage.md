@@ -7,25 +7,20 @@ The Prismarine CLI is used to generate the client code from your models.
 Generates a `prismarine_client.py` file.
 
 ### Arguments:
-- **`CLUSTER_PACKAGE`**: The Python package containing your models (e.g., `myapp.models`).
+- **`CLUSTER_PACKAGE`**: The Python package containing your models (e.g., `common`). The CLI expects to import `common.models` and find a `Cluster` instance there.
 
 ### Options:
 - **`--base <path>`** (required): The base directory of the project where the package is located.
-- **`--runtime <package>`**: Parent package for models to use in generated imports.
 - **`--model-library <typed-dict|pydantic>`**: Which model library to use (default: `typed-dict`).
+- **`--runtime <package>`**: Parent package for models to use in generated imports.
 - **`--extra-imports <pkg:Class>`**: Add extra imports to the generated client.
 - **`--dynamo-access-module <module>`**: Custom module for DynamoDB access.
 
-### Examples:
+### Recommended Usage:
 
-**Basic TypedDict generation:**
+**Pydantic generation (common for EasySAM projects):**
 ```bash
-prismarine generate-client --base . myapp.db
-```
-
-**Pydantic generation:**
-```bash
-prismarine generate-client --base . myapp.db --model-library pydantic
+uv run prismarine generate-client common --base . --model-library pydantic
 ```
 
 ## version Command
@@ -33,5 +28,5 @@ prismarine generate-client --base . myapp.db --model-library pydantic
 Prints the current version of Prismarine.
 
 ```bash
-prismarine version
+uv run prismarine version
 ```

@@ -14,6 +14,10 @@ EasySAM encourages a modular "Module Pattern" for organizing AWS resources. The 
 ```text
 my-project/
 ├── resources.yaml            # Global settings (prefix, tags) and module imports
+├── sam/
+│   └── thirdparty/
+│       └── requirements.txt  # Runtime dependencies (FastAPI, Prismarine, etc.)
+├── pyproject.toml            # Dev dependencies (pytest, ruff, easysam)
 ├── backend/                  # Main module (imported by resources.yaml)
 │   ├── database/             # Data resources (DynamoDB, RDS)
 │   │   └── easysam.yaml
@@ -23,11 +27,17 @@ my-project/
 │           └── index.py      # Lambda handler code
 ├── common/                   # Shared logic (referenced by multiple modules)
 │   └── utils.py
-├── thirdparty/               # External dependencies
-│   └── requirements.txt
 └── tests/                    # Project-level tests (pytest)
     └── test_myapp.py
 ```
+
+### Dependency Management
+- **Runtime Dependencies**: Place in `sam/thirdparty/requirements.txt`. These are packaged into the Lambda deployment artifact.
+- **Dev Dependencies**: Use `pyproject.toml` with `[dependency-groups] dev`.
+- **Project Dependencies**: Keep `pyproject.toml [project].dependencies` empty (`dependencies = []`).
+
+### Git Configuration
+To prevent local symlinks or copied code from being tracked, add `**/common/` to the `.gitignore` file within the directory containing your Lambda code (usually `backend/`).
 
 ## Core Workflows
 
@@ -49,6 +59,40 @@ my-project/
 1. Run `uv run easysam --environment dev --aws-profile <profile> inspect cloud .` to verify.
 2. Generate the SAM template: `uv run easysam --environment dev generate .`.
 3. Deploy: `uv run easysam --environment dev --aws-profile <profile> deploy .`.
+
+## EasySAM YAML Syntax Rules
+
+### Resource References
+Use **bare names** for table and bucket references. **Do NOT use `!Ref`**.
+```yaml
+resources:
+  tables:
+    - MyTable      # Correct
+  buckets:
+    - my-bucket    # Correct
+```
+
+### Environment Variables
+`envvars` must be a child of `resources:`, NOT a sibling of it under `lambda:`.
+- **Bucket/Table Refs**: Use bare names.
+- **SSM Parameters**: Use `{{resolve:ssm:/path/to/param}}`. **Do NOT use `!Param`**.
+```yaml
+lambda:
+  resources:
+    envvars:
+      TABLE_NAME: MyTable
+      BUCKET_NAME: my-bucket
+      API_KEY: "{{resolve:ssm:/myapp/api-key}}"
+```
+
+### HTTP Integration
+Use `integration:` (not `api:`). Each Lambda needs a unique path prefix.
+```yaml
+lambda:
+  integration:
+    path: /my-service
+    open: true
+```
 
 ## Reference Material
 - **Patterns**: See [references/patterns.md](references/patterns.md) for common AWS recipes.

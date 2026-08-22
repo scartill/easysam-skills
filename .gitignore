@@ -1,1 +1,5 @@
 .aider*
+*.skill
+skills/*-workspace/
+skills-lock.json
+

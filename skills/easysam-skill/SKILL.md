@@ -1,100 +1,98 @@
 ---
 name: easysam-skill
-description: Build and deploy serverless applications using EasySAM. Use when the user wants to scaffold a new project, add AWS resources (Lambda, DynamoDB, S3, etc.), or set up CI/CD for an EasySAM project.
+description: Build and deploy modular serverless applications using the EasySAM YAML-to-SAM generator. Always use this skill whenever the user asks to scaffold a serverless project, configure AWS resources (Lambda, DynamoDB, S3, SQS, SNS, EventBridge poller), define resources.yaml or easysam.yaml, inspect schema or cloud settings, generate SAM templates, or set up GitHub Actions CI/CD pipelines for serverless applications, even if they don't explicitly mention 'EasySAM'.
 ---
 
 # EasySAM Skill
 
-This skill helps you build and deploy serverless applications using the EasySAM YAML-to-SAM generator.
+This skill provides opinionated workflows and syntax rules for building, validating, and deploying serverless applications using the EasySAM YAML-to-SAM generator.
 
 ## Standard Project Hierarchy
 
-EasySAM encourages a modular "Module Pattern" for organizing AWS resources. The baseline hierarchy follows this structure:
+EasySAM strictly enforces a modular "Module Pattern" for organizing AWS resources. Avoid monolithic configurations; divide applications into feature or resource modules:
 
 ```text
 my-project/
-├── resources.yaml            # Global settings (prefix, tags) and module imports
+├── resources.yaml            # Global configuration (prefix, tags, python, envvars) and module imports
+├── deploy-context.yaml       # Environment overrides (dev, prod ARNs/VPCs)
 ├── sam/
 │   └── thirdparty/
-│       └── requirements.txt  # Runtime dependencies (FastAPI, Prismarine, etc.)
+│       └── requirements.txt  # Runtime dependencies packaged into Lambda artifacts
 ├── pyproject.toml            # Dev dependencies (pytest, ruff, easysam)
 ├── backend/                  # Main module (imported by resources.yaml)
-│   ├── database/             # Data resources (DynamoDB, RDS)
+│   ├── database/             # Database resources module
 │   │   └── easysam.yaml
-│   └── function/             # Compute resources (Lambdas)
+│   └── function/             # Compute resources module
 │       └── my-function/
 │           ├── easysam.yaml  # Local resource definition
 │           └── index.py      # Lambda handler code
-├── common/                   # Shared logic (referenced by multiple modules)
+├── common/                   # Shared application logic
 │   └── utils.py
-└── tests/                    # Project-level tests (pytest)
+└── tests/                    # Unit & integration test suite (pytest)
     └── test_myapp.py
 ```
 
-### Dependency Management
-- **Runtime Dependencies**: Place in `sam/thirdparty/requirements.txt`. These are packaged into the Lambda deployment artifact.
-- **Dev Dependencies**: Use `pyproject.toml` with `[dependency-groups] dev`.
-- **Project Dependencies**: Keep `pyproject.toml [project].dependencies` empty (`dependencies = []`).
+### Key Architectural Conventions
+- **Modular Imports**: Root `resources.yaml` must list sub-modules under `import:` (e.g., `import: [backend]`).
+- **Dependency Management**:
+  - Place Lambda runtime packages in `sam/thirdparty/requirements.txt`.
+  - Keep project dependencies empty in `pyproject.toml` (`[project] dependencies = []`) and place development tools under `[dependency-groups] dev`.
+- **Git Configuration**: Place `**/common/` in the `.gitignore` of Lambda code directories to avoid tracking synced code.
 
-### Git Configuration
-To prevent local symlinks or copied code from being tracked, add `**/common/` to the `.gitignore` file within the directory containing your Lambda code (usually `backend/`).
+## Core Developer Workflows
 
-## Core Workflows
+### 1. Scaffolding a New Application
+1. Run `uv run easysam init` to initialize project baseline.
+2. Structure modules by boundary (e.g., `backend/database/`, `backend/orders/`).
+3. Define global settings in `resources.yaml` (set `prefix`, `tags`, `python`, `import`).
+4. Place core business logic in `common/` and keep Lambda handlers minimal.
 
-### 1. Scaffolding a Project
-1. Run `uv run easysam init`.
-2. Organize resources by type under `backend/` or by feature (e.g., `orders/`, `users/`).
-3. Place shared helper functions in a root `common/` directory.
-4. Ensure the root `resources.yaml` imports your top-level modules (e.g., `import: [backend]`).
-5. Keep Lambda handler logic minimal; delegate complexity to `common/`.
+### 2. Adding a Resource (Implement-Validate-Test Cycle)
+1. Add local resource definitions in the target module's `easysam.yaml`.
+2. **Schema Validation Gate**: Immediately run `uv run easysam --environment dev inspect schema .` to validate YAML schema.
+3. Write minimal Lambda handler code alongside the module's `easysam.yaml`.
+4. Write accompanying unit tests in `tests/` using `pytest`.
 
-### 2. Adding a Resource
-1. Identify the target module (e.g., `backend/database/` or `backend/function/myfunc/`).
-2. Add the resource definition to the local `easysam.yaml`.
-3. Run schema validation: `uv run easysam --environment dev inspect schema .`.
-4. Create handler code (if needed) in the same directory as the local `easysam.yaml`.
-5. Add a unit test in `tests/`.
-
-### 3. Deployment
-1. Run `uv run easysam --environment dev --aws-profile <profile> inspect cloud .` to verify.
-2. Generate the SAM template: `uv run easysam --environment dev generate .`.
-3. Deploy: `uv run easysam --environment dev --aws-profile <profile> deploy .`.
+### 3. Deployment Pipeline
+1. **Cloud Verification Gate**: Run `uv run easysam --environment dev --aws-profile <profile> inspect cloud .` to verify external ARNs and roles.
+2. **Template Preview**: Run `uv run easysam --environment dev generate .` to inspect the generated `template.yml`.
+3. **Deploy**: Run `uv run easysam --environment dev --aws-profile <profile> deploy .`.
 
 ## EasySAM YAML Syntax Rules
 
-### Resource References
-Use **bare names** for table and bucket references. **Do NOT use `!Ref`**.
-```yaml
-resources:
-  tables:
-    - MyTable      # Correct
-  buckets:
-    - my-bucket    # Correct
-```
+### 1. Resource References
+- **Tables & Buckets**: Refer to local DynamoDB tables and S3 buckets by bare name strings (`MyTable`, `my-bucket`). **Do NOT use `!Ref`**.
 
-### Environment Variables
-`envvars` must be a child of `resources:`, NOT a sibling of it under `lambda:`.
-- **Bucket/Table Refs**: Use bare names.
+### 2. Environment Variables
+- `envvars` MUST be defined under `resources:`, NOT as a sibling of `resources:` under `lambda:`.
 - **SSM Parameters**: Use `{{resolve:ssm:/path/to/param}}`. **Do NOT use `!Param`**.
+
 ```yaml
 lambda:
+  name: my-service
   resources:
+    tables:
+      - MyTable
+    buckets:
+      - my-bucket
     envvars:
       TABLE_NAME: MyTable
       BUCKET_NAME: my-bucket
       API_KEY: "{{resolve:ssm:/myapp/api-key}}"
 ```
 
-### HTTP Integration
-Use `integration:` (not `api:`). Each Lambda needs a unique path prefix.
+### 3. HTTP Integrations
+- Use `integration:` (not `api:`). Ensure each HTTP Lambda has a unique path prefix.
+
 ```yaml
 lambda:
+  name: api-handler
   integration:
-    path: /my-service
+    path: /api/v1
     open: true
 ```
 
 ## Reference Material
-- **Patterns**: See [references/patterns.md](references/patterns.md) for common AWS recipes.
-- **Troubleshooting**: See [references/troubleshooting.md](references/troubleshooting.md) for fixing schema and cloud errors.
-- **CI/CD**: Use [assets/publish.yml](assets/publish.yml) for GitHub Actions.
+- **Resource Recipes & Patterns**: See [references/patterns.md](references/patterns.md) for full YAML recipes (DynamoDB, S3, SQS, SNS, Poller, `resources.yaml`, `deploy-context.yaml`).
+- **Troubleshooting**: See [references/troubleshooting.md](references/troubleshooting.md) for schema, cloud, and template resolution error fixes.
+- **CI/CD Pipeline**: Use [assets/publish.yml](assets/publish.yml) for GitHub Actions OIDC deployment.

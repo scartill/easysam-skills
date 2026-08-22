@@ -17,6 +17,8 @@ This skill provides guidelines and patterns for using **Prismarine**, a model-dr
    EasySAM automatically inspects Prismarine models during preprocessing to create and register DynamoDB tables, indexes, TTL, and stream triggers in CloudFormation.
 4. **Order Decorators Correctly**:
    Place `@c.index(...)` decorators **ABOVE** `@c.model(...)` decorators.
+5. **Do NOT Run Standalone `prismarine generate-client` Commands in EasySAM**:
+   In EasySAM projects, Prismarine client code (`prismarine_client.py`) is **automatically generated as an integrated step of `easysam generate .` and `easysam deploy .`**. Do NOT run separate `prismarine generate-client` CLI commands.
 
 ---
 
@@ -31,7 +33,7 @@ my-project/
 │   ├── dynamo_access.py      # Access module for environment-suffixed tables
 │   └── myobject/
 │       ├── models.py         # Prismarine Cluster & model definitions
-│       └── prismarine_client.py # Auto-generated client code (or gitignored)
+│       └── prismarine_client.py # Auto-generated client code (created by easysam generate/deploy)
 ├── backend/
 │   └── function/
 │       └── my-function/
@@ -73,12 +75,16 @@ prismarine:
       trigger: true              # Preserve model-defined triggers
 ```
 
-### 3. Generate Client Code
-- **Automatic (EasySAM)**: Client code (`prismarine_client.py`) is generated automatically during `easysam generate` or `easysam deploy`.
-- **Manual (CLI)**:
-  ```bash
-  uv run prismarine generate-client myobject --base common --model-library typed-dict
-  ```
+### 3. Generate & Deploy (Automatic)
+Simply run standard EasySAM commands. EasySAM handles Prismarine table preprocessing and client generation internally:
+```bash
+# Preprocesses models, validates schema, generates template, and writes prismarine_client.py
+uv run easysam --environment dev generate .
+
+# Builds and deploys application and Prismarine models to AWS
+uv run easysam --environment dev --aws-profile <profile> deploy .
+```
+*(Note: Standalone `prismarine generate-client` CLI usage is only for non-EasySAM standalone projects).*
 
 ### 4. Execute CRUD Operations
 ```python
@@ -105,4 +111,4 @@ users = UserRecordModel.ByEmail.list(Email='user@example.com')
 - **[easysam.md](references/easysam.md)**: EasySAM integration syntax (`resources.yaml`, stream triggers, conditional tables, TTL).
 - **[model-definition.md](references/model-definition.md)**: Complete `@c.model`, `@c.index`, `@c.export` API & Pydantic mode.
 - **[crud-api.md](references/crud-api.md)**: Generated client methods (`get`, `put`, `update`, `save`, `delete`, `list`, `scan`).
-- **[cli-usage.md](references/cli-usage.md)**: Standalone Prismarine CLI commands and options.
+- **[cli-usage.md](references/cli-usage.md)**: Standalone Prismarine CLI commands (non-EasySAM projects only).

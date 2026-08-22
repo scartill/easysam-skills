@@ -15,6 +15,8 @@ This skill provides opinionated workflows and syntax rules for building, validat
    Any Lambda function using FastAPI or similar routing frameworks must set `greedy: true` under `integration:`. FastAPI manages internal sub-path routing (`/api/v1/items`); non-greedy routes will cause API Gateway to return 404 for sub-routes.
 3. **Deployment Failure Circuit-Breaker**:
    If `easysam deploy` or CloudFormation stack update gets stuck, fails, or enters a rollback loop **2 or more times**: **STOP attempting retries immediately.** Do not run command loops. Output the exact failure details from CloudFormation logs and inform the user so they can intervene (e.g. manual console rollback, `easysam delete --force`, or fixing CloudFormation resource locks).
+4. **Do NOT Run Standalone `prismarine generate-client`**:
+   When using Prismarine in EasySAM, client code generation (`prismarine_client.py`) is **automatically performed as an integrated step of `easysam generate .` and `easysam deploy .`**. Do NOT execute separate `prismarine generate-client` shell commands.
 
 ## Standard Project Hierarchy
 
@@ -59,7 +61,7 @@ When building DynamoDB-backed applications in EasySAM, choose one of two support
 
 1. **Prismarine (Prisma for DynamoDB)**:
    - **Use Case**: Schema-driven ORM with type-safe models, auto-generated Pydantic models, and structured queries.
-   - **Setup**: Place `schema.prisma` in `backend/database/`. Prismarine generates client code to `prismarine_clients/` (must be gitignored).
+   - **Setup**: Define models in `common/<package>/models.py` and configure `prismarine:` in `resources.yaml`. EasySAM automatically generates `prismarine_client.py` during `easysam generate .` or `easysam deploy .`.
 2. **Custom `DynamoAccess` (boto3 Helper)**:
    - **Use Case**: Lightweight, zero-dependency, low-latency DynamoDB access using direct `boto3` queries.
    - **Setup**: Define a `DynamoAccess` class in `common/dynamo_access.py` wrapping `boto3.resource('dynamodb')` table operations (`get_item`, `put_item`, `query`, `update_item`).
@@ -80,7 +82,7 @@ When building DynamoDB-backed applications in EasySAM, choose one of two support
 
 ### 3. Deployment Pipeline & Safety
 1. **Cloud Verification Gate**: Run `uv run easysam --environment dev --aws-profile <profile> inspect cloud .` to verify external ARNs and roles.
-2. **Template Preview**: Run `uv run easysam --environment dev generate .` to inspect generated templates. (**Do NOT edit `template.yml` directly**).
+2. **Template Preview**: Run `uv run easysam --environment dev generate .` to inspect generated templates and generate Prismarine clients automatically. (**Do NOT edit `template.yml` directly or run standalone `prismarine generate-client`**).
 3. **Deploy**: Run `uv run easysam --environment dev --aws-profile <profile> deploy .`.
 4. **Stuck Deployment Safety**: If deployment fails or hangs 2+ times, **STOP retrying** and report CloudFormation stack status to the user.
 

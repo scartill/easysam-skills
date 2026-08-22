@@ -41,18 +41,17 @@ jobs:
           role-to-assume: ${{ steps.env.outputs.ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Validate Schema
-        run: uv run easysam --environment ${{ steps.env.outputs.STAGE }} inspect schema .
-
       - name: Run Tests
         run: uv run pytest
 
-      - name: Inspect Cloud Resources
-        run: uv run easysam --environment ${{ steps.env.outputs.STAGE }} inspect cloud .
+      # PR Validation Gate: Verify schema and cloud resources on Pull Requests (before merge)
+      - name: PR Validation (Schema & Cloud Check)
+        if: github.event_name == 'pull_request'
+        run: |
+          uv run easysam --environment ${{ steps.env.outputs.STAGE }} inspect schema .
+          uv run easysam --environment ${{ steps.env.outputs.STAGE }} inspect cloud .
 
-      - name: Generate SAM Template
-        run: uv run easysam --environment ${{ steps.env.outputs.STAGE }} generate .
-
-      - name: Deploy to AWS (Pushes only)
+      # Deployment: easysam deploy automatically performs schema validation, template generation, dependency sync, and SAM deploy internally.
+      - name: Deploy to AWS
         if: github.event_name == 'push'
         run: uv run easysam --environment ${{ steps.env.outputs.STAGE }} deploy .

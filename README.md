@@ -26,11 +26,6 @@ Install the skills directly from this repository:
 npx skills add https://github.com/scartill/easysam-skills
 ```
 
-After installation, reload your Gemini CLI session:
-```bash
-/skills reload
-```
-
 ## Documentation
 
 - **[EasySAM Workflows](skills/easysam-skill/SKILL.md)**

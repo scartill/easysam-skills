@@ -1,5 +1,12 @@
+.kirp
+.agents
 .aider*
 *.skill
-skills/*-workspace/
-skills-lock.json
 
+# Skill evaluation workspaces & snapshots
+skills/*-workspace/
+
+# Local agent metadata & locks
+.agents/
+.kiro/
+skills-lock.json

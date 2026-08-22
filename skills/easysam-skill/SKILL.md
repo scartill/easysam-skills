@@ -1,6 +1,6 @@
 ---
 name: easysam-skill
-description: Build and deploy modular serverless applications using the EasySAM YAML-to-SAM generator. Always use this skill whenever the user asks to scaffold a serverless project, configure AWS resources (Lambda, DynamoDB, S3, SQS, SNS, EventBridge poller), define resources.yaml or easysam.yaml, inspect schema or cloud settings, generate SAM templates, or set up GitHub Actions CI/CD pipelines for serverless applications, even if they don't explicitly mention 'EasySAM'.
+description: Build and deploy modular serverless applications using the EasySAM YAML-to-SAM generator. Always use this skill whenever the user asks to scaffold a serverless project, configure AWS resources (Lambda, DynamoDB, S3, SQS, SNS, EventBridge poller, OpenSearch Serverless, Kinesis, Function URLs), define resources.yaml or easysam.yaml, inspect schema or cloud settings, generate SAM templates, or set up GitHub Actions CI/CD pipelines for serverless applications, even if they don't explicitly mention 'EasySAM'.
 ---
 
 # EasySAM Skill
@@ -107,6 +107,7 @@ lambda:
 ```
 
 ## Reference Material
-- **Resource Recipes & Patterns**: See [references/patterns.md](references/patterns.md) for full YAML recipes (FastAPI greedy routes, Prismarine vs DynamoAccess, DynamoDB, S3, SQS, SNS, Poller).
+- **Examples Index**: See [references/examples.md](references/examples.md) for a complete mapping of all 18 example projects under `example/` in the `easysam` repository.
+- **Resource Recipes & Patterns**: See [references/patterns.md](references/patterns.md) for full YAML recipes across all 14 supported resource types (FastAPI greedy routes, OpenSearch Serverless, Lambda Function URLs, Kinesis Streams, Custom Layers, Custom Authorizers, IoT MQTT, Prismarine vs DynamoAccess, DynamoDB, S3, SQS, SNS, Poller).
 - **Troubleshooting**: See [references/troubleshooting.md](references/troubleshooting.md) for schema, cloud, stack lock, and template resolution error fixes.
 - **CI/CD Pipeline**: Use [assets/publish.yml](assets/publish.yml) for GitHub Actions OIDC deployment.

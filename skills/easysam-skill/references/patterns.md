@@ -1,12 +1,40 @@
-# EasySAM Resource Patterns
+# EasySAM Resource Patterns & Supported Resource Types
 
-These patterns demonstrate correct EasySAM syntax for `resources.yaml`, `deploy-context.yaml`, module-level `easysam.yaml` resource definitions, and data access layers.
+This document provides comprehensive YAML patterns for all supported AWS resource types and features in EasySAM.
 
-## Global Project Configuration (`resources.yaml`)
-*File: resources.yaml*
+---
+
+## Supported Top-Level Resource Types
+
+EasySAM supports 14 top-level resource and configuration keys in `resources.yaml` or module-level `easysam.yaml`:
+
+| Top-Level Key | Description | Example Pattern Section |
+| --- | --- | --- |
+| `prefix` | Global project resource name prefix (**required**). | Global Configuration |
+| `python` | Python runtime version (`"3.12"`, `"3.13"`, `"3.14"`). | Global Configuration |
+| `tags` | AWS tags applied across generated resources. | Global Configuration |
+| `envvars` | Global environment variables & SSM resolvers. | Global Configuration |
+| `import` | Modular sub-directory imports. | Global Configuration |
+| `lambda` / `functions` | Lambda function compute definitions. | Compute Patterns |
+| `tables` | DynamoDB tables (keys, GSIs, TTL, stream triggers). | Database Patterns |
+| `buckets` | S3 storage buckets (`public: true`, access policies). | Storage Patterns |
+| `queues` | SQS message queues. | Messaging Patterns |
+| `topics` | SNS notification topics. | Messaging Patterns |
+| `streams` | Kinesis Data Streams delivering into S3. | Analytics Patterns |
+| `search` | OpenSearch Serverless (AOSS) collections. | Search Patterns |
+| `authorizers` | API Gateway custom Lambda authorizers. | Security Patterns |
+| `mqtt` | AWS IoT MQTT custom authorizers & topic rules. | IoT Patterns |
+| `prismarine` | Model-driven DynamoDB ORM integration. | Prismarine Patterns |
+| `plugins` | Custom Jinja2 template extension plugins. | Plugin Patterns |
+
+---
+
+## 1. Global & Environment Patterns
+
+### Global Configuration (`resources.yaml`)
 ```yaml
 prefix: my-app
-python: 3.12
+python: "3.14"    # Supported: "3.12", "3.13", "3.14"
 tags:
   Project: EasySAMApp
   Owner: DevOps
@@ -16,123 +44,81 @@ import:
   - backend
 ```
 
-## Recommended Git Configuration (`.gitignore`)
-*File: .gitignore*
-```gitignore
-# Python & Bytecode
-__pycache__/
-*.pyc
-
-# Virtual Environment & Tooling
-.venv/
-.easysam/
-template.yml
-template.yaml
-
-# EasySAM Generated Module Artifacts
-**/common/
-**/prismarine_clients/
-```
-
-## Environment Overrides (`deploy-context.yaml`)
-*File: deploy-context.yaml*
+### Conditional Overrides (`deploy-context.yaml`)
 ```yaml
 dev:
   envvars:
     LOG_LEVEL: DEBUG
-    EXTERNAL_API_URL: "https://dev-api.example.com"
 prod:
   envvars:
     LOG_LEVEL: INFO
-    EXTERNAL_API_URL: "https://api.example.com"
   vpc:
     security_group_ids:
       - sg-0123456789abcdef0
     subnet_ids:
       - subnet-0123456789abcdef0
-      - subnet-0fe23456789abcdef0
 ```
 
-## HTTP-Facing Lambda with FastAPI (Greedy Route)
-*File: backend/function/api/easysam.yaml*
+---
+
+## 2. Compute Patterns (`lambda:`)
+
+### HTTP API Gateway (FastAPI / Greedy Route)
 ```yaml
 lambda:
   name: api-handler
-  integration:       # Use integration, not api
-    path: /api/v1    # Base path prefix
-    greedy: true     # MANDATORY for FastAPI to receive sub-path routes (/api/v1/*)
+  integration:
+    path: /api/v1
+    greedy: true      # Mandatory for FastAPI sub-routing
     open: true
 ```
 
-## Data Access Pattern 1: Prismarine (Prisma for DynamoDB)
-*File: backend/database/schema.prisma*
-```prisma
-datasource db {
-  provider = "dynamodb"
-  url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prismarine-client-py"
-  output   = "../../prismarine_clients/main"
-}
-
-model User {
-  id        String   @id
-  email     String   @unique
-  createdAt DateTime @default(now())
-}
-```
-
-## Data Access Pattern 2: Custom `DynamoAccess` (boto3 Helper)
-*File: common/dynamo_access.py*
-```python
-import os
-import boto3
-from typing import Any
-
-class DynamoAccess:
-    """Lightweight boto3 wrapper for low-latency DynamoDB operations."""
-
-    def __init__(self, table_name_env: str):
-        table_name = os.environ[table_name_env]
-        dynamodb = boto3.resource('dynamodb')
-        self.table = dynamodb.Table(table_name)
-
-    def get(self, pk: str, sk: str | None = None) -> dict[str, Any] | None:
-        key = {'pk': pk}
-        if sk:
-            key['sk'] = sk
-        res = self.table.get_item(Key=key)
-        return res.get('Item')
-
-    def put(self, item: dict[str, Any]) -> None:
-        self.table.put_item(Item=item)
-```
-
-## Lambda + DynamoDB (with IAM)
-*File: backend/database/easysam.yaml*
+### AWS Lambda Function URL
 ```yaml
-tables:
-  MyTable:
-    attributes:
-      - name: pk
-        hash: true
-      - name: sk
-        range: true
-
 lambda:
-  name: db-worker
-  resources:
-    tables:
-      - MyTable      # Correct: bare name, NO !Ref
-    envvars:
-      TABLE_NAME: MyTable
-      API_KEY: "{{resolve:ssm:/myapp/api-key}}" # Correct: SSM resolve syntax
+  name: direct-url-func
+  function_url:
+    auth_type: NONE   # 'NONE' or 'AWS_IAM'
+    invoke_mode: BUFFERED # 'BUFFERED' or 'RESPONSE_STREAM'
 ```
 
-## DynamoDB Table with Global Secondary Index (GSI)
-*File: backend/database/easysam.yaml*
+### Lambda Custom Layers
+```yaml
+lambda:
+  name: custom-layered-func
+  layers:
+    - "arn:aws:lambda:us-east-1:123456789012:layer:FFmpeg:1"
+```
+
+### Scheduled Lambda (EventBridge Cron/Rate)
+```yaml
+lambda:
+  name: cron-job
+  schedule: "rate(10 minutes)" # Or cron expression: "cron(0 12 * * ? *)"
+```
+
+---
+
+## 3. Storage, Database & Search Patterns
+
+### OpenSearch Serverless (AOSS Vector Search)
+```yaml
+search:
+  vector-index:
+    type: vectorsearch # OpenSearch Serverless collection
+```
+
+### Kinesis Data Stream into S3
+```yaml
+streams:
+  telemetry-stream:
+    buckets:
+      raw-bucket:
+        bucketprefix: telemetry/
+        intervalinseconds: 300
+```
+
+### DynamoDB Table with GSI & TTL
 ```yaml
 tables:
   UsersTable:
@@ -141,13 +127,26 @@ tables:
         hash: true
       - name: email
         type: S
-    gsis:
+    indices:
       - name: EmailIndex
-        hash: email
+        attributes:
+          - name: email
+            hash: true
+    ttl: ExpireAt
 ```
 
-## SQS-Triggered Lambda
-*File: backend/function/worker/easysam.yaml*
+### S3 Bucket (Public Shortcut)
+```yaml
+buckets:
+  assets:
+    public: true
+```
+
+---
+
+## 4. Messaging & Security Patterns
+
+### SQS Poller Lambda
 ```yaml
 queues:
   task-queue:
@@ -155,35 +154,35 @@ queues:
 lambda:
   name: worker
   polls:
-    - name: task-queue # Correct: bare queue name
+    - name: task-queue
       batchsize: 10
 ```
 
-## SNS Topic & Subscription
-*File: backend/notifications/easysam.yaml*
+### SNS Topic Subscriber Lambda
 ```yaml
 topics:
   user-events:
 
 lambda:
-  name: event-processor
+  name: notifier
   subscribes:
-    - name: user-events # Correct: bare topic name
+    - name: user-events
 ```
 
-## S3 Bucket (Public Shortcut)
-*File: backend/storage/easysam.yaml*
+### API Gateway Custom Authorizer
 ```yaml
-buckets:
-  assets:
-    public: true     # Shortcut for public CORS
+authorizers:
+  jwt-auth:
+    function: auth-lambda
+    identity_source: method.request.header.Authorization
+    ttl: 300
 ```
 
-## Scheduled Lambda (Poller)
-*File: backend/function/poller/easysam.yaml*
+### AWS IoT MQTT Authorizer
 ```yaml
-lambda:
-  name: poller
-  schedule: "rate(5 minutes)"
-  # NOTE: Poller has no integration: block
+mqtt:
+  authorizer:
+    function: iot-auth-lambda
+  topics:
+    - "telemetry/#"
 ```

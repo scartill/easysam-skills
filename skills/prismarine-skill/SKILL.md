@@ -1,60 +1,108 @@
 ---
 name: prismarine-skill
-description: Development guide for using the Prismarine DynamoDB ORM. Use when defining DynamoDB models, generating client code, or performing database operations using Prismarine.
+description: Build, define, and manage DynamoDB models and client code using Prismarine, the model-driven DynamoDB ORM for EasySAM and Python. Always use this skill when creating Prismarine clusters, defining @c.model or @c.index decorators, configuring resources.yaml prismarine settings, handling TypedDict or Pydantic modelling modes, or performing CRUD database operations via prismarine_client.
 ---
 
-# Prismarine Development Skill
+# Prismarine Skill
 
-This skill provides guidance for using Prismarine, a Pythonic ORM for DynamoDB.
+This skill provides guidelines and patterns for using **Prismarine**, a model-driven DynamoDB ORM for EasySAM and Python applications.
 
-## Core Workflow
+## Core Directives & Rules
 
-1.  **Define Models**: Create a `models.py` file in your cluster package (e.g., `common/models.py`). **Models must be in a file named `models.py`**, not `__init__.py`.
-2.  **Generate Client**: Use the `prismarine generate-client` CLI command.
-3.  **Extend/Use**: Create a `db.py` file (e.g., `common/db.py`) to extend the generated client and use it for CRUD operations.
+1. **Models MUST Be in `models.py`**:
+   Define Prismarine models inside a file explicitly named `models.py` (e.g., `common/myobject/models.py`). Do NOT define models in `__init__.py`.
+2. **Cluster Prefix MUST Match EasySAM `prefix`**:
+   The prefix passed to `Cluster('MyPrefix')` in `models.py` **must start with the master `prefix`** defined in `resources.yaml` (e.g., if `resources.yaml` prefix is `my-app`, cluster prefix must be `my-app` or `my-app-users`).
+3. **Do NOT Manually Define DynamoDB Tables in `easysam.yaml`**:
+   EasySAM automatically inspects Prismarine models during preprocessing to create and register DynamoDB tables, indexes, TTL, and stream triggers in CloudFormation.
+4. **Order Decorators Correctly**:
+   Place `@c.index(...)` decorators **ABOVE** `@c.model(...)` decorators.
 
-## Model Definition
+---
 
-Models define the schema and keys for DynamoDB tables.
+## Standard Project Layout
 
-- Use `@c.model(PK='...', SK='...')` to define primary keys.
-- Use `@c.index(...)` for Secondary Indexes (place ABOVE `@c.model`).
-- See [model-definition.md](references/model-definition.md) for detailed decorator options.
+When integrating Prismarine with EasySAM, use the following package structure:
 
-## Client Generation
-
-Generate the type-safe client using the CLI. The command expects to import your models from the `models` submodule.
-
-```bash
-uv run prismarine generate-client <base_pkg> --base . --model-library pydantic
+```text
+my-project/
+├── resources.yaml            # Root config with prismarine: section
+├── common/
+│   ├── dynamo_access.py      # Access module for environment-suffixed tables
+│   └── myobject/
+│       ├── models.py         # Prismarine Cluster & model definitions
+│       └── prismarine_client.py # Auto-generated client code (or gitignored)
+├── backend/
+│   └── function/
+│       └── my-function/
+│           ├── easysam.yaml  # Lambda function definition
+│           └── index.py      # Handler importing common.myobject.prismarine_client
 ```
-Example:
-```bash
-uv run prismarine generate-client common --base . --model-library pydantic
-```
 
-## CRUD Operations
+---
 
-The generated client provides a high-level API for interacting with DynamoDB.
+## Data Access Workflow
 
+### 1. Define Model Cluster (`common/myobject/models.py`)
 ```python
-from common.db import TeamModel
+from typing import TypedDict, NotRequired
+from prismarine.runtime import Cluster
 
-# Create
-TeamModel.put({'Foo': 'val1', 'Bar': 'val2'})
+c = Cluster('MyApp')
+
+@c.index(index='by-email', PK='Email')  # Must be ABOVE @c.model
+@c.model(PK='Id', SK='Type', ttl='ExpireAt', trigger='itemlogger')
+class UserRecord(TypedDict):
+    Id: str
+    Type: str
+    Email: str
+    Name: str
+    ExpireAt: NotRequired[int]
+```
+
+### 2. Configure `resources.yaml`
+```yaml
+prefix: my-app
+python: 3.12
+prismarine:
+  default-base: common
+  access-module: common.dynamo_access
+  modelling: typed-dict          # or: pydantic
+  tables:
+    - package: myobject
+      trigger: true              # Preserve model-defined triggers
+```
+
+### 3. Generate Client Code
+- **Automatic (EasySAM)**: Client code (`prismarine_client.py`) is generated automatically during `easysam generate` or `easysam deploy`.
+- **Manual (CLI)**:
+  ```bash
+  uv run prismarine generate-client myobject --base common --model-library typed-dict
+  ```
+
+### 4. Execute CRUD Operations
+```python
+from common.myobject.prismarine_client import UserRecordModel
+from prismarine.runtime import DbNotFound
+
+# Create / Replace
+UserRecordModel.put({'Id': 'usr_123', 'Type': 'profile', 'Email': 'user@example.com', 'Name': 'Alice'})
 
 # Get
-item = TeamModel.get(foo='val1', bar='val2')
+try:
+    user = UserRecordModel.get(Id='usr_123', Type='profile')
+except DbNotFound:
+    user = None
 
-# Query (if SK exists)
-items = TeamModel.list(foo='val1')
+# Query Secondary Index
+users = UserRecordModel.ByEmail.list(Email='user@example.com')
 ```
 
-- See [crud-api.md](references/crud-api.md) for the complete API reference.
+---
 
-## EasySAM Integration
+## Reference Material
 
-Prismarine tables are **auto-generated** by EasySAM. Do not define tables manually in `easysam.yaml`.
-
-- Configure the `prismarine:` section in the root `resources.yaml`.
-- See [easysam.md](references/easysam.md) for integration details.
+- **[easysam.md](references/easysam.md)**: EasySAM integration syntax (`resources.yaml`, stream triggers, conditional tables, TTL).
+- **[model-definition.md](references/model-definition.md)**: Complete `@c.model`, `@c.index`, `@c.export` API & Pydantic mode.
+- **[crud-api.md](references/crud-api.md)**: Generated client methods (`get`, `put`, `update`, `save`, `delete`, `list`, `scan`).
+- **[cli-usage.md](references/cli-usage.md)**: Standalone Prismarine CLI commands and options.

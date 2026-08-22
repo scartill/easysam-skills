@@ -1,60 +1,100 @@
 # Model Definition in Prismarine
 
-Prismarine uses the `Cluster` class to group and define models. Models can be defined using Python's `TypedDict` (default) or `pydantic.BaseModel`.
+Prismarine uses the `Cluster` class to group and register DynamoDB models. Models can be defined using Python `TypedDict` (default) or `pydantic.BaseModel`.
 
-## The Cluster Class
+---
 
-Initialize a cluster with an optional prefix:
+## 1. Initializing the Cluster
+
+Initialize a cluster in `common/<package>/models.py`:
 
 ```python
 from prismarine.runtime import Cluster
-c = Cluster('MyPrefix')
+c = Cluster('MyApp')  # Must start with EasySAM prefix
 ```
 
-## @c.model Decorator
+---
 
-Registers a class as a DynamoDB model.
+## 2. `@c.model` Decorator
 
-### Parameters:
-- **`PK`** (required): The name of the partition key attribute.
-- **`SK`** (optional): The name of the sort key attribute.
-- **`table`** (optional): Full custom table name (ignores prefix).
-- **`name`** (optional): Custom model name (prepends prefix).
-- **`trigger`** (optional): EasySAM Lambda trigger configuration.
-- **`ttl`** (optional): Attribute name for DynamoDB TTL.
+Registers a class as a DynamoDB model table.
 
-### Example:
+### Decorator Parameters:
+- **`PK`** (required): Partition key attribute name (`str`).
+- **`SK`** (optional): Sort key attribute name (`str`).
+- **`table`** (optional): Custom exact table name (overrides cluster prefixing).
+- **`name`** (optional): Custom model name (prepends cluster prefix).
+- **`trigger`** (optional): EasySAM Lambda trigger configuration (`str` or `dict`).
+- **`ttl`** (optional): Attribute name designated for DynamoDB TTL (`str`).
+
+---
+
+## 3. `@c.index` Decorator
+
+Defines a Global Secondary Index (GSI).
+
+> **CRITICAL RULE**: `@c.index(...)` decorators **MUST BE PLACED ABOVE** the `@c.model(...)` decorator.
+
+### Decorator Parameters:
+- **`index`** (required): Name of the index in DynamoDB (`str`).
+- **`PK`** (required): Partition key attribute name for the index (`str`).
+- **`SK`** (optional): Sort key attribute name for the index (`str`).
+
+---
+
+## 4. Code Examples
+
+### A. TypedDict Mode (Default)
+*File: common/orders/models.py*
 ```python
-@c.model(PK='UserId', SK='RecordId')
-class UserRecord(TypedDict):
-    UserId: str
-    RecordId: str
-    Data: str
+from typing import TypedDict, NotRequired
+from prismarine.runtime import Cluster
+
+c = Cluster('MyApp')
+
+@c.index(index='by-customer', PK='CustomerId', SK='CreatedAt')  # ABOVE @c.model
+@c.model(PK='OrderId', SK='ItemType', ttl='ExpireAt', trigger='order-events')
+class OrderItem(TypedDict):
+    OrderId: str
+    ItemType: str
+    CustomerId: str
+    CreatedAt: str
+    Quantity: int
+    Price: float
+    ExpireAt: NotRequired[int]
 ```
 
-## @c.index Decorator
-
-Defines a Secondary Index. **Must be placed above `@c.model`**.
-
-### Parameters:
-- **`index`** (required): Name of the index in DynamoDB.
-- **`PK`** (required): Partition key for the index.
-- **`SK`** (optional): Sort key for the index.
-
-### Example:
+### B. Pydantic Mode (`modelling: pydantic`)
+*File: common/orders/models.py*
 ```python
-@c.index(index='by-data', PK='Data')
-@c.model(PK='UserId', SK='RecordId')
-class UserRecord(TypedDict):
-    ...
+from pydantic import BaseModel
+from typing import Optional
+from prismarine.runtime import Cluster
+
+c = Cluster('MyApp')
+
+@c.index(index='by-customer', PK='CustomerId', SK='CreatedAt')
+@c.model(PK='OrderId', SK='ItemType', ttl='ExpireAt')
+class OrderItem(BaseModel):
+    OrderId: str
+    ItemType: str
+    CustomerId: str
+    CreatedAt: str
+    Quantity: int
+    Price: float
+    ExpireAt: Optional[int] = None
 ```
 
-## @c.export Decorator
+---
 
-Exports a class (e.g., a nested TypedDict) that is not a model but is used as a type within models.
+## 5. `@c.export` Decorator
+
+Exports nested data structures or custom types so they are included in generated client imports:
 
 ```python
 @c.export
-class Metadata(TypedDict):
-    Created: str
+class Address(TypedDict):
+    Street: str
+    City: str
+    Zip: str
 ```

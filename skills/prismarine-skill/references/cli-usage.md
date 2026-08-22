@@ -1,31 +1,50 @@
-# Prismarine CLI Usage
+# Prismarine CLI Usage Reference
 
-The Prismarine CLI is used to generate the client code from your models.
+While EasySAM automatically runs Prismarine client generation during `easysam generate` and `easysam deploy`, you can also invoke the `prismarine` CLI directly for local development and testing.
 
-## generate-client Command
+---
 
-Generates a `prismarine_client.py` file.
+## `generate-client` Command
 
-### Arguments:
-- **`CLUSTER_PACKAGE`**: The Python package containing your models (e.g., `common`). The CLI expects to import `common.models` and find a `Cluster` instance there.
+Generates `prismarine_client.py` from model definitions in a package.
 
-### Options:
-- **`--base <path>`** (required): The base directory of the project where the package is located.
-- **`--model-library <typed-dict|pydantic>`**: Which model library to use (default: `typed-dict`).
-- **`--runtime <package>`**: Parent package for models to use in generated imports.
-- **`--extra-imports <pkg:Class>`**: Add extra imports to the generated client.
-- **`--dynamo-access-module <module>`**: Custom module for DynamoDB access.
+### Command Syntax:
 
-### Recommended Usage:
-
-**Pydantic generation (common for EasySAM projects):**
 ```bash
-uv run prismarine generate-client common --base . --model-library pydantic
+uv run prismarine generate-client <PACKAGE> --base <BASE_DIR> [OPTIONS]
 ```
 
-## version Command
+### Arguments:
+- **`PACKAGE`**: Subpackage name under base containing `models.py` (e.g. `myobject`). The CLI imports `<BASE_DIR>.<PACKAGE>.models`.
 
-Prints the current version of Prismarine.
+### Key Options:
+
+| Option | Description | Example |
+| --- | --- | --- |
+| `--base <path>` | Base root directory containing the package (**required**). | `--base common` |
+| `--model-library <typed-dict\|pydantic>` | Model representation for generated client. | `--model-library pydantic` |
+| `--dynamo-access-module <module>` | Custom access module import path. | `--dynamo-access-module common.dynamo_access` |
+| `--extra-imports <module:Class>` | Additional imports to include in client. | `--extra-imports common.models:CustomType` |
+
+---
+
+## Examples
+
+### TypedDict Generation:
+```bash
+uv run prismarine generate-client myobject --base common --model-library typed-dict
+```
+
+### Pydantic Generation:
+```bash
+uv run prismarine generate-client myobject --base common --model-library pydantic --dynamo-access-module common.dynamo_access
+```
+
+---
+
+## `version` Command
+
+Prints the installed version of Prismarine:
 
 ```bash
 uv run prismarine version

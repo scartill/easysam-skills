@@ -1,10 +1,12 @@
-# Model Definition in Prismarine
-
-Prismarine uses the `Cluster` class to group and register DynamoDB models. Models can be defined using Python `TypedDict` (default) or `pydantic.BaseModel`.
-
----
-
-## 1. Initializing the Cluster
+1: # Model Definition in Prismarine
+2: 
+3: Prismarine uses the `Cluster` class to group and register DynamoDB models. Models can be defined using Python `TypedDict` (default) or `pydantic.BaseModel`.
+4: 
+5: > **MODELLING MODE REQUIREMENT**: Specify `modelling` explicitly in `resources.yaml` (`modelling: typed-dict` or `modelling: pydantic`). When using `typed-dict` mode, model classes MUST inherit from `TypedDict`. When using `pydantic` mode, model classes MUST inherit from `BaseModel` (and `pydantic` must be specified as a Lambda dependency).
+6: 
+7: ---
+8: 
+9: ## 1. Initializing the Cluster
 
 Initialize a cluster in `common/<package>/models.py`:
 

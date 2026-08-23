@@ -109,20 +109,39 @@ class CacheItem(TypedDict):
 
 ---
 
-## 6. Access Module Implementation
-
-Create `common/dynamo_access.py` to resolve environment-suffixed table names at runtime:
-
-```python
-import os
-import boto3
-from prismarine.runtime.dynamo_default import DynamoAccess
-
-class AppDynamoAccess(DynamoAccess):
-    def get_resource(self):
-        return boto3.resource('dynamodb')
-
-    def get_table(self, full_model_name: str):
-        env = os.environ.get('ENVIRONMENT', 'dev')
-        return self.get_resource().Table(f'{full_model_name}-{env}')
-```
+112: ## 6. Access Module Implementation
+113: 
+114: When deploying multi-environment stacks, DynamoDB tables are suffixed with environment/stage names (e.g., `ScarBotMessageDedup-scarbotprod`). The generated Prismarine client uses an **access module** to resolve actual physical table names at runtime.
+115: 
+116: Create `common/dynamo_access.py`:
+117: 
+118: ```python
+119: import os
+120: import boto3
+121: from prismarine.runtime.dynamo_access import DynamoAccess
+122: 
+123: DYNAMO = boto3.resource('dynamodb')
+124: 
+125: 
+126: class MyDynamoAccess(DynamoAccess):
+127:     def get_resource(self):
+128:         return DYNAMO
+129: 
+130:     def get_table(self, full_model_name: str):
+131:         env = os.environ.get('ENV', 'dev')
+132:         return self.get_resource().Table(f'{full_model_name}-{env}')
+133: 
+134: 
+135: dynamoaccess = MyDynamoAccess()
+136: 
+137: 
+138: def get_dynamo_access():
+139:     return dynamoaccess
+140: ```
+141: 
+142: ### Key Rules for Access Modules:
+143: - **`get_dynamo_access()` standard entrypoint**: The module MUST export a top-level `get_dynamo_access()` function returning a `DynamoAccess` instance.
+144: - **`get_table(full_model_name)` resolution**: Receives the logical table name (e.g. `ScarBotMessageDedup`) and returns the boto3 `Table` object for the actual deployed name.
+145: - **Default fallback**: Without `access-module`, Prismarine defaults to `prismarine.runtime.dynamo_default` which performs NO name transformation (logical name must match deployed table name exactly).
+146: - **No manual table names**: Consumer code MUST NEVER construct table names manually or call `_put_item` directly. Always use generated model methods (`XxxModel.put()`, `.get()`, etc.).
+147: ```

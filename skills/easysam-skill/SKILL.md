@@ -109,7 +109,7 @@ lambda:
 ```
 
 ## Reference Material
-- **Examples Index**: See [references/examples.md](references/examples.md) for a complete mapping of all 18 example projects under `example/` in the `easysam` repository.
-- **Resource Recipes & Patterns**: See [references/patterns.md](references/patterns.md) for full YAML recipes across all 14 supported resource types (FastAPI greedy routes, OpenSearch Serverless, Lambda Function URLs, Kinesis Streams, Custom Layers, Custom Authorizers, IoT MQTT, Prismarine vs DynamoAccess, DynamoDB, S3, SQS, SNS, Poller).
+- **Examples Index**: See [references/examples.md](references/examples.md) for a complete mapping of all 20 example projects under `example/` in the `easysam` repository.
+- **Resource Recipes & Patterns**: See [references/patterns.md](references/patterns.md) for full YAML recipes across all 14 supported resource types (FastAPI greedy routes, OpenSearch Serverless, Lambda Function URLs, Kinesis Streams, Custom Layers, Custom Authorizers, IoT MQTT, Prismarine vs DynamoAccess, DynamoDB, S3, SQS standard & FIFO, SNS, Poller).
 - **Troubleshooting**: See [references/troubleshooting.md](references/troubleshooting.md) for schema, cloud, stack lock, and template resolution error fixes.
 - **CI/CD Pipeline**: Use [assets/publish.yml](assets/publish.yml) for GitHub Actions OIDC deployment.

@@ -18,7 +18,7 @@ EasySAM supports 14 top-level resource and configuration keys in `resources.yaml
 | `lambda` / `functions` | Lambda function compute definitions. | Compute Patterns |
 | `tables` | DynamoDB tables (keys, GSIs, TTL, stream triggers). | Database Patterns |
 | `buckets` | S3 storage buckets (`public: true`, access policies). | Storage Patterns |
-| `queues` | SQS message queues. | Messaging Patterns |
+| `queues` | SQS message queues (standard and FIFO). | Messaging Patterns |
 | `topics` | SNS notification topics. | Messaging Patterns |
 | `streams` | Kinesis Data Streams delivering into S3. | Analytics Patterns |
 | `search` | OpenSearch Serverless (AOSS) collections. | Search Patterns |
@@ -149,7 +149,7 @@ buckets:
 ### SQS Poller Lambda
 ```yaml
 queues:
-  task-queue:
+  task-queue:              # standard queue (null value)
 
 lambda:
   name: worker
@@ -157,6 +157,52 @@ lambda:
     - name: task-queue
       batchsize: 10
 ```
+
+### SQS FIFO Queue
+Declare a FIFO queue by giving the queue an object value with `fifo: true`. The
+AWS-required `.fifo` name suffix is appended automatically — never write it in
+the queue key (keys allow only `[a-z0-9-]`).
+
+```yaml
+queues:
+  notifications:                       # standard queue (null value)
+  orders:                              # FIFO queue with defaults
+    fifo: true
+  payments:                            # fully configured FIFO queue
+    fifo: true
+    content_based_deduplication: false
+    deduplication_scope: messageGroup  # auto-sets fifo_throughput_limit: perMessageGroupId
+    visibility_timeout: 60
+    message_retention_period: 86400
+
+lambda:
+  name: order-worker
+  polls:
+    - name: orders
+      batchsize: 1                     # recommended for FIFO: isolates per-record failures
+  send:
+    - payments
+```
+
+FIFO queue properties (all optional):
+
+| Property | Applies to | Default | Notes |
+| --- | --- | --- | --- |
+| `fifo` | any | `false` | Marks queue as FIFO; appends `.fifo` to the name. |
+| `content_based_deduplication` | FIFO | `true` | Derives `MessageDeduplicationId` from the body hash. Differs from the AWS default (`false`); dedupes identical bodies within a 5-minute window. |
+| `deduplication_scope` | FIFO | `queue` | `messageGroup` or `queue`. |
+| `fifo_throughput_limit` | FIFO | `perQueue` | Auto-set to `perMessageGroupId` when `deduplication_scope: messageGroup` (CloudFormation rejects `messageGroup` + `perQueue`). |
+| `visibility_timeout` | any | (unset) | `VisibilityTimeout` seconds (0–43200). |
+| `message_retention_period` | any | (unset) | `MessageRetentionPeriod` seconds (60–1209600). |
+
+**Rules & caveats:**
+- FIFO queues work with Lambda `polls` and `send`. A FIFO queue **cannot** be an
+  API Gateway `sqs` integration target — schema validation rejects it.
+- A poison message repeatedly failing a `polls` consumer blocks its entire
+  `MessageGroupId` (head-of-line blocking). Catch exceptions in the handler and
+  prefer `batchsize: 1`.
+- Converting a standard queue to FIFO in place is not possible; CloudFormation
+  replaces the queue (delete + recreate), which can lose in-flight messages.
 
 ### SNS Topic Subscriber Lambda
 ```yaml

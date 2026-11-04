@@ -5,8 +5,8 @@ The `easysam` codebase includes 20 reference examples under `example/` demonstra
 | Example Directory | Focus / Feature | Key Resource Types & Syntax |
 | --- | --- | --- |
 | `example/aoss/` | OpenSearch Serverless (AOSS) | `search:`, vector search collections, AOSS policies |
-| `example/functionurl/` | AWS Lambda Function URLs | `function_url: true`, `auth_type`, CORS, response streaming |
-| `example/customlayer/` | Lambda Custom Layers | `layers: [arn:aws:lambda:...]` under Lambda definition |
+| `example/functionurl/` | AWS Lambda Function URLs | `functionurl: true` (or object with `auth_type`, `invoke_mode`, `cors`) |
+| `example/customlayer/` | Lambda Custom Layers | `layers:` object (`name: arn`) under `lambda.resources:` |
 | `example/schedule/` | Scheduled / Cron Lambdas | `schedule: "rate(5 minutes)"` or cron expressions |
 | `example/kinesismutltiplebuckets/` | Kinesis Streams & Multi-S3 | `streams:`, `buckets:`, Kinesis Firehose delivery |
 | `example/sqstrigger/` | Standard SQS queue + poller | `queues:` (null value), `polls:`, custom authorizer |

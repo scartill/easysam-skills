@@ -92,7 +92,8 @@ When building DynamoDB-backed applications in EasySAM, choose one of two support
 - Refer to local DynamoDB tables and S3 buckets by bare name strings (`MyTable`, `my-bucket`). **Do NOT use `!Ref`**.
 
 ### 2. Environment Variables
-- `envvars` MUST be defined under `resources:`, NOT as a sibling of `resources:` under `lambda:`.
+- **Global** env vars go at the top level of `resources.yaml` under `envvars:` (keys must start uppercase: `^[A-Z][A-Z0-9-_]+$`).
+- **Per-lambda** env vars go under the lambda's `resources:` block (`lambda.resources.envvars:`) — NOT as a direct sibling of `name:` under `lambda:`.
 - **SSM Parameters**: Use `{{resolve:ssm:/path/to/param}}`. **Do NOT use `!Param`**.
 
 ### 3. HTTP Integrations & Greedy Routes

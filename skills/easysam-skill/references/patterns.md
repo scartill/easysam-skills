@@ -44,6 +44,33 @@ import:
   - backend
 ```
 
+### Environment Variables (two levels)
+Env vars exist at two scopes with **different key-casing rules**:
+
+- **Global** (`resources.yaml`, top-level `envvars:`) — keys must match
+  `^[A-Z][A-Z0-9-_]+$` (start uppercase). Applied to all functions.
+- **Per-lambda** (under `lambda.resources.envvars:`) — keys match
+  `^[A-Za-z0-9_]+$` (more permissive). Scoped to that function.
+
+Per-lambda env vars go under the lambda's `resources:` block, **not** as a direct
+sibling of `name:` under `lambda:`.
+
+```yaml
+# Global — resources.yaml
+envvars:
+  MY_ENV_VAR: myvalue
+  LOG_LEVEL: "{{environment}}"
+```
+
+```yaml
+# Per-lambda — module easysam.yaml
+lambda:
+  name: worker
+  resources:
+    envvars:
+      queue_url: "{{resolve:ssm:/app/queue-url}}"
+```
+
 ### Conditional Overrides (`deploy-context.yaml`)
 ```yaml
 dev:
@@ -74,20 +101,44 @@ lambda:
 ```
 
 ### AWS Lambda Function URL
+The key is `functionurl` (one word, no underscore). It accepts **either** a bare
+boolean **or** a config object (`auth_type`, `invoke_mode`, `cors`). `functionurl`
+may sit directly under `lambda:` or under `lambda.resources:` — both are valid.
+
 ```yaml
+# Shortcut: enable a public Function URL with defaults
 lambda:
   name: direct-url-func
-  function_url:
-    auth_type: NONE   # 'NONE' or 'AWS_IAM'
-    invoke_mode: BUFFERED # 'BUFFERED' or 'RESPONSE_STREAM'
+  functionurl: true
+```
+
+```yaml
+# Full config object
+lambda:
+  name: streaming-func
+  functionurl:
+    auth_type: NONE          # 'NONE' or 'AWS_IAM'
+    invoke_mode: RESPONSE_STREAM  # 'BUFFERED' or 'RESPONSE_STREAM'
+    cors:
+      allow_origins:
+        - "*"
+      allow_methods:
+        - GET
+        - POST
 ```
 
 ### Lambda Custom Layers
+`layers` is an **object** (map), not a list. Each key matches `^[a-zA-Z0-9-]+$`
+and maps to an ARN string or an SSM resolver. It lives under `lambda.resources:`.
+
 ```yaml
 lambda:
   name: custom-layered-func
-  layers:
-    - "arn:aws:lambda:us-east-1:123456789012:layer:FFmpeg:1"
+  resources:
+    layers:
+      ffmpeg: "arn:aws:lambda:us-east-1:123456789012:layer:FFmpeg:1"
+      # or resolve from SSM:
+      # ffmpeg: "{{resolve:ssm:/ffmpeg-latest-arn}}"
 ```
 
 ### Scheduled Lambda (EventBridge Cron/Rate)
